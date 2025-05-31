@@ -70,7 +70,7 @@
 
 {#if isOpen}
 	<div
-		class="fixed inset-0 z-50 overflow-y-auto"
+		class="fixed inset-0 z-[100] overflow-y-auto"
 		transition:fade={{ duration: 200 }}
 	>
 		<!-- Backdrop -->
@@ -126,7 +126,7 @@
 						<button
 							onclick={() => activeTab = 'general'}
 							class="py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'general' 
-								? 'border-indigo-500 text-indigo-600 dark:tex.env.examplet-indigo-400' 
+								? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' 
 								: 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}"
 						>
 							⚙️ General
@@ -143,7 +143,7 @@
 									Manage Dashboard Cards
 								</h3>
 								<p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-									Enable, disable, and reorder the cards on your dashboard. Drag and drop to reorder.
+									Enable, disable, resize, and reorder the cards on your dashboard. Cards are draggable and resizable on the main dashboard. Drag and drop here to reorder.
 								</p>
 							</div>
 
@@ -174,6 +174,21 @@
 											</div>
 										</div>
 										<div class="flex items-center space-x-3">
+											<!-- Size selector -->
+											<select
+												value={card.size}
+												onchange={(e) => {
+													const target = e.target as HTMLSelectElement;
+													cardSettings.updateCard(card.id, { size: target.value as any });
+												}}
+												class="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+											>
+												<option value="small">Small</option>
+												<option value="medium">Medium</option>
+												<option value="large">Large</option>
+												<option value="full">Full</option>
+											</select>
+											
 											<label class="relative inline-flex items-center cursor-pointer">
 												<input
 													type="checkbox"
@@ -191,12 +206,34 @@
 								{/each}
 							</div>
 
-							<div class="flex justify-start">
+							<div class="flex justify-between">
 								<button
 									onclick={resetSettings}
 									class="px-4 py-2 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:text-red-300 dark:hover:bg-red-800 rounded-md transition-colors"
 								>
 									Reset to Default
+								</button>
+								
+								<button
+									onclick={() => {
+										// Reset all card positions to a grid layout
+										const gridPositions = [
+											{ x: 0, y: 0 },
+											{ x: 420, y: 0 },
+											{ x: 0, y: 320 },
+											{ x: 370, y: 420 }
+										];
+										cards.forEach((card, index) => {
+											if (gridPositions[index]) {
+												cardSettings.updateCard(card.id, {
+													position: gridPositions[index]
+												});
+											}
+										});
+									}}
+									class="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:hover:bg-blue-800 rounded-md transition-colors"
+								>
+									Reset Positions
 								</button>
 							</div>
 						</div>
@@ -228,14 +265,14 @@
 									General Settings
 								</h3>
 								<p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-									Configure general dashboard behavior.
+									Configure general dashboard options.
 								</p>
 							</div>
 
 							<div class="space-y-4">
 								<div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
 									<p class="text-sm text-gray-600 dark:text-gray-400">
-										🚧 General settings coming soon!
+										⚙️ General settings coming soon!
 									</p>
 								</div>
 							</div>
@@ -247,7 +284,7 @@
 				<div class="flex justify-end space-x-3 p-6 border-t border-gray-200 dark:border-gray-700">
 					<button
 						onclick={closeModal}
-						class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+						class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
 					>
 						Close
 					</button>
