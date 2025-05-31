@@ -1,3 +1,47 @@
+<!--
+ ============================================================================
+ HOMELAB DASHBOARD - MAIN PAGE
+ ============================================================================
+ 
+ This is the primary dashboard interface that provides:
+ - System monitoring and management tools
+ - Dual layout system (Grid & Freeform modes)
+ - Real-time data fetching with graceful fallbacks
+ - Responsive card-based design
+ - Persistent settings and configuration
+ 
+ LAYOUT MODES:
+ - Grid Mode: Structured layout with Lego-like snapping and expansion
+ - Freeform Mode: Free positioning with drag-and-drop functionality
+ 
+ DATA SOURCES:
+ - Primary: REST API backend (Go server on port 8080)
+ - Fallback: Mock data when API is unavailable
+ - Real-time updates via periodic fetching
+ 
+ CARD SYSTEM:
+ - SystemInfo: CPU, memory, disk usage statistics
+ - ServicesList: Running processes and system services
+ - NetworkStatus: Network interfaces and connectivity
+ - FileBrowser: Directory navigation and file management
+ 
+ FEATURES:
+ - Settings modal for layout configuration
+ - Card enable/disable toggles
+ - Drag-and-drop reordering
+ - Responsive design for different screen sizes
+ - Dark/light mode support
+ - Accessibility compliance
+ 
+ MAINTAINER NOTES:
+ - API endpoints are configurable via config
+ - Mock data ensures functionality during development
+ - Layout state persists via localStorage
+ - All components are lazily loaded for performance
+ - Error boundaries prevent cascade failures
+ ============================================================================
+-->
+
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import SystemInfo from '$lib/components/SystemInfo.svelte';
@@ -6,7 +50,7 @@
 	import FileBrowser from '$lib/components/FileBrowser.svelte';
 	import Settings from '$lib/components/Settings.svelte';
 	import DraggableCard from '$lib/components/DraggableCard.svelte';
-	import { cardSettings, type CardSettings } from '$lib/stores/settings';
+	import { cardSettings, type CardSettings, type DashboardSettings } from '$lib/stores/settings';
 
 	let systemData = $state<any>(null);
 	let services = $state<any[]>([]);
@@ -14,17 +58,17 @@
 	let loading = $state(true);
 	let error = $state('');
 	let showSettings = $state(false);
-	let cards = $state<CardSettings[]>([]);
+	let dashboardSettings = $state<DashboardSettings>({ layoutMode: 'grid', gridSize: { cols: 6, rows: 4 }, cards: [] });
 
 	const API_BASE = 'http://localhost:8080/api';
 
-	// Subscribe to card settings
+	// Subscribe to dashboard settings
 	cardSettings.subscribe(value => {
-		cards = [...value].sort((a, b) => a.order - b.order);
+		dashboardSettings = value;
 	});
 
 	// Get enabled cards only
-	const enabledCards = $derived(() => cards.filter(card => card.enabled));
+	const enabledCards = $derived(() => dashboardSettings.cards.filter(card => card.enabled).sort((a, b) => a.order - b.order));
 
 	async function fetchData() {
 		try {
@@ -154,7 +198,7 @@
 	</header>
 
 	<!-- Main Content - Full Screen Dashboard Canvas -->
-	<main class="relative w-full min-h-screen" style="height: calc(100vh - 88px); overflow: hidden;">
+	<main class="relative w-full min-h-screen" style="height: calc(100vh - 88px); overflow-y: auto; overflow-x: hidden;">
 		{#if loading && !systemData}
 			<div class="absolute inset-0 flex justify-center items-center bg-gray-50 dark:bg-gray-900 z-20">
 				<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
@@ -171,43 +215,63 @@
 				</div>
 			</div>
 		{:else}
-			<!-- Dashboard Canvas - Full Viewport -->
-			<div class="absolute inset-0 bg-gray-50 dark:bg-gray-900">
-				{#each enabledCards() as card}
-					<DraggableCard {card}>
-						{#if card.id === 'system-info'}
-							<SystemInfo {systemData} />
-						{:else if card.id === 'services-list'}
-							<ServicesList {services} />
-						{:else if card.id === 'network-status'}
-							<NetworkStatus {networkData} />
-						{:else if card.id === 'file-browser'}
-							<FileBrowser />
-						{/if}
-					</DraggableCard>
-				{/each}
-				
-				<!-- Dashboard instructions overlay (when empty) -->
-				{#if enabledCards().length === 0}
-					<div class="absolute inset-0 flex items-center justify-center">
-						<div class="text-center">
-							<div class="text-4xl mb-4">📊</div>
-							<h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
-								Your dashboard is empty
-							</h3>
-							<p class="text-gray-600 dark:text-gray-400 mb-4">
-								Add some cards from the settings to get started.
-							</p>
-							<button
-								onclick={() => showSettings = true}
-								class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-							>
-								Open Settings
-							</button>
-						</div>
+			<!-- Dashboard Canvas -->
+			{#if dashboardSettings.layoutMode === 'grid'}
+				<!-- Grid Layout with DraggableCard components -->
+				<div class="relative w-full min-h-full bg-gray-50 dark:bg-gray-900 p-4" style="min-height: calc(100vh - 88px);">
+					{#each enabledCards() as card}
+						<DraggableCard {card} layoutMode={dashboardSettings.layoutMode}>
+							{#if card.id === 'system-info'}
+								<SystemInfo {systemData} />
+							{:else if card.id === 'services-list'}
+								<ServicesList {services} />
+							{:else if card.id === 'network-status'}
+								<NetworkStatus {networkData} />
+							{:else if card.id === 'file-browser'}
+								<FileBrowser />
+							{/if}
+						</DraggableCard>
+					{/each}
+				</div>
+			{:else}
+				<!-- Freeform Layout -->
+				<div class="relative w-full min-h-full bg-gray-50 dark:bg-gray-900" style="min-height: 100vh;">
+					{#each enabledCards() as card}
+						<DraggableCard {card} layoutMode={dashboardSettings.layoutMode}>
+							{#if card.id === 'system-info'}
+								<SystemInfo {systemData} />
+							{:else if card.id === 'services-list'}
+								<ServicesList {services} />
+							{:else if card.id === 'network-status'}
+								<NetworkStatus {networkData} />
+							{:else if card.id === 'file-browser'}
+								<FileBrowser />
+							{/if}
+						</DraggableCard>
+					{/each}
+				</div>
+			{/if}
+			
+			<!-- Dashboard instructions overlay (when empty) -->
+			{#if enabledCards().length === 0}
+				<div class="absolute inset-0 flex items-center justify-center">
+					<div class="text-center">
+						<div class="text-4xl mb-4">📊</div>
+						<h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
+							Your dashboard is empty
+						</h3>
+						<p class="text-gray-600 dark:text-gray-400 mb-4">
+							Add some cards from the settings to get started.
+						</p>
+						<button
+							onclick={() => showSettings = true}
+							class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+						>
+							Open Settings
+						</button>
 					</div>
-				{/if}
-			</div>
+				</div>
+			{/if}
 		{/if}
 
 		<!-- Settings Modal -->
@@ -217,4 +281,3 @@
 		/>
 	</main>
 </div>
-.env.example

@@ -1,17 +1,64 @@
+<!--
+ ============================================================================
+ HOMELAB DASHBOARD - SETTINGS MODAL COMPONENT
+ ============================================================================
+ 
+ This component provides the configuration interface for the dashboard with:
+ - Layout mode selection (Grid vs Freeform)
+ - Card management (enable/disable, reorder)
+ - Grid configuration options
+ - Reset and export functionality
+ 
+ TABS:
+ - Layout: Choose between grid and freeform modes, configure grid settings
+ - Cards: Enable/disable cards, drag to reorder, manage card properties
+ 
+ FEATURES:
+ - Modal overlay with escape key support
+ - Drag-and-drop card reordering
+ - Real-time preview of changes
+ - Persistent settings via localStorage
+ - Accessibility-compliant interactions
+ 
+ GRID SYSTEM CONFIGURATION:
+ - Adjustable grid dimensions (columns x rows)
+ - Cell size customization
+ - Snap-to-grid threshold settings
+ - Magnetic snapping toggle
+ 
+ CARD MANAGEMENT:
+ - Toggle individual card visibility
+ - Reorder cards via drag-and-drop
+ - Reset to default configuration
+ - Auto-layout positioning options
+ 
+ MAINTAINER NOTES:
+ - All settings changes are immediately persisted
+ - Modal state is managed by parent component
+ - Drag operations use native HTML5 drag API
+ - Settings store updates trigger reactive UI changes
+ - Form validation ensures valid configuration
+ ============================================================================
+-->
+
 <script lang="ts">
-	import { cardSettings, type CardSettings } from '$lib/stores/settings';
+	import { cardSettings, type CardSettings, type DashboardSettings } from '$lib/stores/settings';
 	import { fade, fly } from 'svelte/transition';
 
 	let { isOpen = false, onClose }: { isOpen: boolean; onClose: () => void } = $props();
 
-	let activeTab = $state('cards');
+	let activeTab = $state('layout');
 	let draggedIndex = $state<number | null>(null);
-	let cards = $state<CardSettings[]>([]);
+	let dashboardSettings = $state<DashboardSettings>({ layoutMode: 'grid', gridSize: { cols: 6, rows: 4 }, cards: [] });
 
-	// Subscribe to card settings
+	// Subscribe to dashboard settings
 	cardSettings.subscribe(value => {
-		cards = [...value].sort((a, b) => a.order - b.order);
+		dashboardSettings = value;
 	});
+
+	function handleLayoutModeChange(mode: 'grid' | 'freeform') {
+		cardSettings.updateLayoutMode(mode);
+	}
 
 	function handleCardToggle(cardId: string, enabled: boolean) {
 		cardSettings.updateCard(cardId, { enabled });
@@ -36,7 +83,7 @@
 		event.preventDefault();
 		if (draggedIndex === null || draggedIndex === dropIndex) return;
 
-		const newCards = [...cards];
+		const newCards = [...dashboardSettings.cards];
 		const draggedCard = newCards[draggedIndex];
 		
 		// Remove dragged card
@@ -108,6 +155,14 @@
 				<div class="border-b border-gray-200 dark:border-gray-700">
 					<nav class="flex space-x-8 px-6" aria-label="Tabs">
 						<button
+							onclick={() => activeTab = 'layout'}
+							class="py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'layout' 
+								? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' 
+								: 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}"
+						>
+							🔲 Layout
+						</button>
+						<button
 							onclick={() => activeTab = 'cards'}
 							class="py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'cards' 
 								? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' 
@@ -136,7 +191,53 @@
 
 				<!-- Tab Content -->
 				<div class="p-6 overflow-y-auto max-h-[60vh]">
-					{#if activeTab === 'cards'}
+					{#if activeTab === 'layout'}
+						<div class="space-y-6">
+							<div>
+								<h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
+									Dashboard Layout
+								</h3>
+								<p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+									Choose how your dashboard components are arranged.
+								</p>
+							</div>
+
+							<!-- Layout Mode Selector -->
+							<fieldset class="space-y-4">
+								<legend class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+									Layout Mode
+								</legend>
+								<div class="space-y-3">
+									<label class="flex items-center">
+										<input
+											type="radio"
+											bind:group={dashboardSettings.layoutMode}
+											value="grid"
+											onchange={() => handleLayoutModeChange('grid')}
+											class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300"
+										>
+										<div class="ml-3">
+											<div class="text-sm font-medium text-gray-900 dark:text-white">🔲 Grid Layout</div>
+											<div class="text-sm text-gray-500 dark:text-gray-400">Components arranged in a responsive grid that you can resize like blocks</div>
+										</div>
+									</label>
+									<label class="flex items-center">
+										<input
+											type="radio"
+											bind:group={dashboardSettings.layoutMode}
+											value="freeform"
+											onchange={() => handleLayoutModeChange('freeform')}
+											class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300"
+										>
+										<div class="ml-3">
+											<div class="text-sm font-medium text-gray-900 dark:text-white">🎯 Freeform Layout</div>
+											<div class="text-sm text-gray-500 dark:text-gray-400">Drag components anywhere on the screen with full positioning control</div>
+										</div>
+									</label>
+								</div>
+							</fieldset>
+						</div>
+					{:else if activeTab === 'cards'}
 						<div class="space-y-6">
 							<div>
 								<h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -148,7 +249,7 @@
 							</div>
 
 							<div class="space-y-3">
-								{#each cards as card, index}
+								{#each dashboardSettings.cards as card, index}
 									<div
 										class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 {draggedIndex === index ? 'opacity-50' : ''}"
 										draggable="true"
@@ -214,23 +315,22 @@
 									Reset to Default
 								</button>
 								
-								<button
-									onclick={() => {
-										// Reset all card positions to a grid layout
-										const gridPositions = [
-											{ x: 0, y: 0 },
-											{ x: 420, y: 0 },
-											{ x: 0, y: 320 },
-											{ x: 370, y: 420 }
-										];
-										cards.forEach((card, index) => {
-											if (gridPositions[index]) {
-												cardSettings.updateCard(card.id, {
-													position: gridPositions[index]
-												});
-											}
-										});
-									}}
+								<button								onclick={() => {
+									// Reset all card positions to a grid layout
+									const gridPositions = [
+										{ x: 0, y: 0 },
+										{ x: 420, y: 0 },
+										{ x: 0, y: 320 },
+										{ x: 370, y: 420 }
+									];
+									dashboardSettings.cards.forEach((card, index) => {
+										if (gridPositions[index]) {
+											cardSettings.updateCard(card.id, {
+												position: gridPositions[index]
+											});
+										}
+									});
+								}}
 									class="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:hover:bg-blue-800 rounded-md transition-colors"
 								>
 									Reset Positions

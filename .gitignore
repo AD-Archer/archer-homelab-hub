@@ -98,6 +98,8 @@ temp/
 
 # VS Code
 .vscode/
+*.instructions.md
+instructions.md
 
 # Vim
 *.swp
